@@ -3,8 +3,9 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"time"
 
-	"github.com/golang-jwt/jwt"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/nickrobinchen/smartClassroom_go/model"
 	"github.com/nickrobinchen/smartClassroom_go/utils"
@@ -21,44 +22,44 @@ func LoginHandler(c echo.Context) error {
 	}
 	err := c.Bind(&params)
 	if err != nil {
-		return err
+		return utils.ResponseJSON(c, 205, "Login error(binding)", nil)
 	}
 	fmt.Printf("params: %v\n", params)
 	result := model.DB.Where("account = ? AND password = ?", params.Account, params.Password).First(&manager)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		msg = "No such account or incorrect password!"
-
 		return utils.ResponseJSON(c, 205, msg, nil)
 	} else {
 		msg = "Login succeed"
 		claims := &struct {
 			UserID int    `json:"user_id"`
 			Role   string `json:"role"`
-			jwt.MapClaims
-			//jwt.RegisteredClaims
+			//Expire int    `json:expire_time`
+			jwt.RegisteredClaims
 		}{
 			int(manager.ID),
 			"manager",
-			jwt.MapClaims{},
-			// jwt.RegisteredClaims{
-			// 	ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 72)),
-			// },
+			//Expire: int(jwt.NewNumericDate(time.Now().Add(time.Hour * 72)).Unix()),
+			jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 72)),
+			},
 		}
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 		t, err := token.SignedString([]byte("secret"))
 		if err != nil {
 			return err
 		}
-		data := echo.Map{"data": echo.Map{
-			"token": t,
-			"role":  []string{"manager"}}}
+		data := echo.Map{
+			"token":       t,
+			"roles":       []string{"manager"},
+			"expire_time": claims.ExpiresAt.Unix()}
 		return utils.ResponseJSON(c, 200, "Login Success", data)
 	}
 	//return utils.ResponseJSON(c, 205, "Unknown server error.", nil)
 }
 
 func GetUserInfoHandler(c echo.Context) error {
-	user_id := int(c.Get("user_id").(float64))
+	user_id := c.Get("user_id")
 	role := c.Get("role").(string)
 	name := ""
 	if role == "manager" {

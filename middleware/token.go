@@ -1,43 +1,54 @@
 package middleware
 
 import (
-	"errors"
 	"fmt"
+	"net/http"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
+	"github.com/nickrobinchen/smartClassroom_go/utils"
 )
 
-// JwtCustomClaims are custom claims extending default ones.
-// See https://github.com/golang-jwt/jwt for more examples
-type JwtCustomClaims struct {
-	UserID int    `json:"user_id"`
+type UserInfoClaim struct {
+	UserID int    `json:"user_id`
 	Role   string `json:"role"`
-	jwt.Claims
-}
-
-func (j JwtCustomClaims) Valid() error {
-	//TODO implement me
-	panic("implement me")
+	jwt.RegisteredClaims
 }
 
 func gen_token(user_id int) {
 
 }
 
+func parseToken(tokenStr string) (*jwt.Token, error) {
+	var claims UserInfoClaim
+	token, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte("secret"), nil
+	})
+	if err != nil {
+		fmt.Printf("err: %v\n", err)
+		return nil, err
+	}
+	return token, nil
+}
+
 func GetUserToken(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		token := c.Get("user").(*jwt.Token) // by default token is stored under `user` key
-		if !true {
-			fmt.Println("JWT token missing or invalid")
-			return errors.New("JWT token missing or invalid")
+		tokenStr := c.Request().Header.Get("Authorization")
+		fmt.Printf("tokenStr: %v\n", tokenStr)
+		if !strings.HasPrefix(tokenStr, "Bearer ") {
+			return utils.ResponseJSON(c, http.StatusUnauthorized, "bad token without bearer", nil)
 		}
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			return echo.ErrBadRequest
+		tokenStr = strings.Replace(tokenStr, "Bearer ", "", 1)
+		token, err := parseToken(tokenStr)
+		if err != nil {
+			return utils.ResponseJSON(c, 401, "bad token(parsing error)", nil)
 		}
-		c.Set("user_id", claims["user_id"])
-		c.Set("role", claims["role"])
+		fmt.Printf("token: %v\n", token.Claims)
+		claims := token.Claims.(*UserInfoClaim)
+		fmt.Printf("claims: %v\n", claims)
+		c.Set("user_id", claims.UserID)
+		c.Set("role", claims.Role)
 		return next(c)
 		// tokenStr := ctx.Request().Header.Get("Authorization")
 		// if !strings.HasPrefix(tokenStr, "Bearer ") {
@@ -55,6 +66,10 @@ func GetUserToken(next echo.HandlerFunc) echo.HandlerFunc {
 		// ctx.Set("id", id)
 		// return next(ctx)
 	}
+}
+
+func ValidateJWTToken(tokenStr string) {
+	panic("unimplemented")
 }
 
 // func login(c echo.Context) error {

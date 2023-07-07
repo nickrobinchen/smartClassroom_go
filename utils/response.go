@@ -2,13 +2,12 @@ package utils
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/labstack/echo/v4"
 )
 
 type ResponseModel struct {
-	Code   string      `json:"code"`
+	Code   int         `json:"code"`
 	Result interface{} `json:"result"`
 	Msg    string      `json:"msg"`
 }
@@ -17,5 +16,5 @@ func ResponseJSON(ctx echo.Context, code int, msg string, object interface{}) er
 	if code != 200 {
 		fmt.Println(msg)
 	}
-	return ctx.JSON(code, ResponseModel{Code: strconv.Itoa(code), Result: object, Msg: msg})
+	return ctx.JSON(code, ResponseModel{Code: code, Result: object, Msg: msg})
 }
